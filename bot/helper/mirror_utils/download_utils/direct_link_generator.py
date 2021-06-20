@@ -74,6 +74,8 @@ def direct_link_generator(link: str):
         return sbembed(link)
     elif '1drv.ms' in link:
         return onedrive(link)
+    elif '1fichier.com' in link:
+        return fichier(link)
     elif 'pixeldrain.com' in link:
         return pixeldrain(link)
     else:
@@ -288,6 +290,62 @@ def onedrive(link: str) -> str:
     resp2 = requests.head(dl_link)
     return dl_link
 
+def fichier(link: str) -> str:
+  regex = r"^([http:\/\/|https:\/\/]+)?.*1fichier\.com\/\?.+"
+  gan = re.match(regex, link)
+  if not gan:
+    raise DirectDownloadLinkException("ERROR: The link you entered is wrong!")
+  if "::" in link:
+    pswd = link.split("::")[-1]
+    url = link.split("::")[-2]
+  else:
+    pswd = None
+    url = link
+  try:
+    if pswd is None:
+      hayuk = requests.post(url)
+    else:
+      asu = {"pass": pswd}
+      hayuk = requests.post(url, data=asu)
+  except:
+    raise DirectDownloadLinkException("ERROR: Unable to reach 1fichier server!")
+  if hayuk.status_code == 404:
+    raise DirectDownloadLinkException("ERROR: File not found / The link you entered is wrong!")
+  bacot = BeautifulSoup(hayuk.content, 'lxml')
+  if bacot.find("a", {"class": "ok btn-general btn-orange"}) is not None:
+    dl_url = bacot.find("a", {"class": "ok btn-general btn-orange"})["href"]
+    if dl_url is None:
+      raise DirectDownloadLinkException("ERROR: Unable to generate Direct Link 1fichier!")
+    else:
+      return dl_url
+  else:
+    if len(bacot.find_all("div", {"class": "ct_warn"})) == 2:
+      str_2 = bacot.find_all("div", {"class": "ct_warn"})[-1]
+      if "you must wait" in str(str_2).lower():
+        numbers = [int(word) for word in str(str_2).split() if word.isdigit()]
+        if len(numbers) == 0:
+          raise DirectDownloadLinkException("ERROR: 1fichier is on a limit. Please wait a few minutes/hour.")
+        else:
+          raise DirectDownloadLinkException(f"ERROR: 1fichier is on a limit. Please wait {numbers[0]} minute.")
+      elif "protect access" in str(str_2).lower():
+        raise DirectDownloadLinkException("ERROR: This link requires a password!\n\n<b>This link requires a password!</b>\n- Insert sign <b>::</b> after the link and write the password after the sign.\n\n<b>Example:</b>\n<code>/mirror https://1fichier.com/?smmtd8twfpm66awbqz04::love you</code>\n\n* No spaces between the signs <b>::</b>\n* For the password, you can use a space!")
+      else:
+        raise DirectDownloadLinkException("ERROR: Error trying to generate Direct Link from 1fichier!")
+    elif len(bacot.find_all("div", {"class": "ct_warn"})) == 3:
+      str_1 = bacot.find_all("div", {"class": "ct_warn"})[-2]
+      str_3 = bacot.find_all("div", {"class": "ct_warn"})[-1]
+      if "you must wait" in str(str_1).lower():
+        numbers = [int(word) for word in str(str_1).split() if word.isdigit()]
+        if len(numbers) == 0:
+          raise DirectDownloadLinkException("ERROR: 1fichier is on a limit. Please wait a few minutes/hour.")
+        else:
+          raise DirectDownloadLinkException(f"ERROR: 1fichier is on a limit. Please wait {numbers[0]} minute.")
+      elif "bad password" in str(str_3).lower():
+        raise DirectDownloadLinkException("ERROR: The password you entered is wrong!")
+      else:
+        raise DirectDownloadLinkException("ERROR: Error trying to generate Direct Link from 1fichier!")
+    else:
+      raise DirectDownloadLinkException("ERROR: Error trying to generate Direct Link from 1fichier!")
 
 def pixeldrain(url: str) -> str:
     """ Based on https://github.com/yash-dk/TorToolkit-Telegram """
